@@ -1,3 +1,5 @@
+use std::{fs, process::Command};
+
 use clap::Parser;
 use rustube::{blocking::Video, url::Url};
 
@@ -10,6 +12,10 @@ struct Args {
     /// File name
     #[arg(short, long)]
     out: Option<String>,
+
+    /// Convert to specified format (ffmpeg)
+    #[arg(short, long)]
+    convert: bool,
 }
 
 fn main() {
@@ -21,11 +27,37 @@ fn main() {
     let stream = video.best_audio().unwrap();
     println!("Downloading");
 
-    if let Some(path) = args.out {
-        stream.blocking_download_to(&path).unwrap();
-        println!("Song downloaded to '{}'", path);
+    if !args.convert {
+        if let Some(path) = args.out {
+            stream.blocking_download_to(&path).unwrap();
+            println!("Song downloaded to '{}'", path);
+        } else {
+            let path = stream.blocking_download().unwrap();
+            println!("Song downloaded to '{}'", path.display());
+        }
     } else {
         let path = stream.blocking_download().unwrap();
-        println!("Song downloaded to '{}'", path.display());
+        println!("Song downloaded to '{}', converting", path.display());
+        if args.out == None && path.extension().is_some_and(|x| x == "mp3") {
+            println!("Already mp3");
+        } else {
+            let out = match args.out {
+                Some(val) => val,
+                None => match path.file_stem() {
+                    None => path.to_str().unwrap().to_owned() + ".mp3",
+                    Some(val) => val.to_str().unwrap().to_owned() + ".mp3",
+                },
+            };
+            let _ = Command::new("ffmpeg")
+                .arg("-i")
+                .arg(path.to_str().unwrap())
+                .arg(&out)
+                .status()
+                .expect("Failed to run ffmpeg");
+            println!("Converted file, now  '{}'", out);
+            println!("Deleting intermediate file");
+            fs::remove_file(path).unwrap();
+        }
     }
+    println!("Done");
 }
