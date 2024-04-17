@@ -48,15 +48,19 @@ fn main() {
                     Some(val) => val.to_str().unwrap().to_owned() + ".mp3",
                 },
             };
-            let _ = Command::new("ffmpeg")
+            let status = Command::new("ffmpeg")
                 .arg("-i")
                 .arg(path.to_str().unwrap())
                 .arg(&out)
                 .status()
                 .expect("Failed to run ffmpeg");
-            println!("Converted file, now  '{}'", out);
-            println!("Deleting intermediate file");
-            fs::remove_file(path).unwrap();
+            if status.success() {
+                println!("Converted file, now  '{}'", out);
+                println!("Deleting intermediate file");
+                fs::remove_file(path).unwrap();
+            } else {
+                println!("FFmpeg error");
+            }
         }
     }
     println!("Done");
